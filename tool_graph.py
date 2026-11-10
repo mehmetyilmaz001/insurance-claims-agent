@@ -15,6 +15,7 @@ client = OpenAI(
 class ToolsState(TypedDict):
     messages: list[dict]
     tool_calls: list
+    tool_rounds: int
     
     
 def ask_model(state: ToolsState):
@@ -50,7 +51,8 @@ def run_tools(state: ToolsState):
     
     return {
         "messages": state["messages"] + tool_messages,
-        "tool_calls": []
+        "tool_calls": [],
+        "tool_rounds": state["tool_rounds"] + 1
     }
     
     
@@ -74,6 +76,11 @@ def route_after_model(state: ToolsState):
     
     return "done"
 
+def route_after_tools(state: ToolsState):
+    if state["tool_rounds"] >= 2:
+        return "finish"
+    
+    return "continue"
 
 def build_tool_graph():
     builder = StateGraph(ToolsState)
@@ -93,7 +100,14 @@ def build_tool_graph():
         }
     )
     
-    builder.add_edge("run_tools", "write_answer")
+    builder.add_conditional_edges(
+        "run_tools",
+        route_after_tools,
+        {
+            "continue": "ask_model",
+            "finish": "write_answer"
+        }
+    )
     builder.add_edge("write_answer", END)
     
     return builder.compile()
@@ -108,19 +122,21 @@ def main():
                 "content": (
                     "Use the lookup tool for policy information."
                     "Base your answer on the returned record. "
-                    "If no recored is found, say so. "
+                    "If no record is found, say so. "
                     "Do not infer claim coverage or approval"    
                 ),
             },
             {
                 "role": "user",
-                "content": "Look up the policy record for POL-123"
+                "content": "Look up POL-999. If no record is found, look up POL-123 and tell me what you find."
             }
         ],
-        "tool_calls": []
+        "tool_calls": [],
+        "tool_rounds": 0
     })
     
     print(result["messages"][-1]["content"])
+    print(f"Tool rounds: {result['tool_rounds']}")
     
 if __name__ == "__main__":
     main()
