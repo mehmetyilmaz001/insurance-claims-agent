@@ -21,6 +21,38 @@ POLICY_TOOL = {
     }
 }
 
+def execute_tool_call(tool_call):
+    
+    function_name = tool_call.function.name
+    
+    if function_name != "lookup_policy":
+        print(f"Unsupported tool: {function_name}")
+        return
+    
+    try:
+        arguments = json.loads(tool_call.function.arguments)
+    except json.JSONDecodeError:
+        print("The tool arguments were not valid JSON.")
+        return
+    
+    if not isinstance(arguments, dict):
+        print("The tool arguments must be a JSON object.")
+        return
+    
+    policy_number = arguments.get("policy_number")
+    
+    if not isinstance(policy_number, str) or not policy_number.strip():
+        print("The tool needs a non empty policy number.")
+        return
+    
+    policy = lookup_policy(policy_number)
+    
+    return {
+        "found": policy is not None,
+        "policy": policy
+    }
+    
+
 def main():
     client = OpenAI(
         base_url="http://127.0.0.1:1234/v1",
@@ -29,19 +61,19 @@ def main():
     )
     
     messages = [
-                {
-                    "role": "system",
-                    "content": (
-                        "Use the lookup tool for policy information. "
-                        "Base your answer on the returned record. "
-                        "If no record is found, say so. "
-                        "Do not infer claim coverage or approval."
-                    )    
-                },
-                {
-                    "role": "user",
-                    "content": "Lookup the policy record for POL-123."
-                }
+            {
+                "role": "system",
+                "content": (
+                    "Use the lookup tool for policy information. "
+                    "Base your answer on the returned record. "
+                    "If no record is found, say so. "
+                    "Do not infer claim coverage or approval."
+                )    
+            },
+            {
+                "role": "user",
+                "content": "Lookup the policy record for POL-123."
+            }
     ]
     
     response = client.chat.completions.create(
@@ -54,38 +86,14 @@ def main():
     
     if message.tool_calls:
         messages.append(message.model_dump(exclude_none=True))
+        
         for tool_call in message.tool_calls:
-            function_name = tool_call.function.name
-            
-            if function_name != "lookup_policy":
-                print(f"Unsupported tool: {function_name}")
-                return
-            
-            try:
-                arguments = json.loads(tool_call.function.arguments)
-            except json.JSONDecodeError:
-                print("The tool arguments were not valid JSON.")
-                return
-            
-            if not isinstance(arguments, dict):
-                print("The tool arguments must be a JSON object.")
-                return
-            
-            policy_number = arguments.get("policy_number")
-            
-            if not isinstance(policy_number, str) or not policy_number.strip():
-                print("The tool needs a non empty policy number.")
-                return
-            
-            policy = lookup_policy(policy_number)
+            tool_result = execute_tool_call(tool_call)
             
             messages.append({
                 "role": "tool",
                 "tool_call_id": tool_call.id,
-                "content": json.dumps({
-                    "found": policy is not None,
-                    "policy": policy,
-                }),
+                "content": json.dumps(tool_result),
             })
             
         final_response = client.chat.completions.create(
