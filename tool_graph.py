@@ -3,6 +3,7 @@ from operator import add
 from typing import Annotated, TypedDict
 
 from langgraph.graph import START, END, StateGraph
+from langgraph.checkpoint.memory import InMemorySaver
 from openai import OpenAI
 
 from try_tools import POLICY_TOOL, execute_tool_call
@@ -111,33 +112,61 @@ def build_tool_graph():
     )
     builder.add_edge("write_answer", END)
     
-    return builder.compile()
+    checkpointer = InMemorySaver()
+    return builder.compile(checkpointer=checkpointer)
 
 def main():
     graph = build_tool_graph()
     
-    result = graph.invoke({
+    config = {
+        "configurable": {
+            "thread_id": "claim-demo-1",
+        }
+    }
+    
+    first_result = graph.invoke({
         "messages": [
             {
                 "role": "system",
                 "content": (
                     "Use the lookup tool for policy information."
                     "Base your answer on the returned record. "
-                    "If no record is found, say so. "
                     "Do not infer claim coverage or approval"    
                 ),
             },
             {
                 "role": "user",
-                "content": "Look up POL-999. If no record is found, look up POL-123 and tell me what you find."
+                "content": (
+                        "My preferred contact method is email. "
+                        "Look up POL-123."
+                ),
             }
         ],
         "tool_calls": [],
         "tool_rounds": 0
-    })
+    },
+    config=config
+    )
     
-    print("Message roles:")
-    print([message["role"] for message in result["messages"]])
+    print("First answer:")
+    print(first_result["messages"][-1]["content"])
+    
+    second_result = graph.invoke(
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "What contact method did I say I prefer?",
+                }
+            ],
+            "tool_calls": [],
+            "tool_rounds": 0,
+        },
+        config=config,
+    )
+
+    print("Follow-up answer:")
+    print(second_result["messages"][-1]["content"])
     
 if __name__ == "__main__":
     main()
