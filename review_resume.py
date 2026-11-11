@@ -1,13 +1,13 @@
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
 
-from review_pause import build_review_graph
+from review_pause import CLAIM_ID, build_review_graph
 
 
 def main():
     config = {
         "configurable": {
-            "thread_id": "review-demo-CLM-001",
+            "thread_id": f"review-demo-{CLAIM_ID}",
         }
     }
 
@@ -33,6 +33,7 @@ def main():
 
         print("Claim:", result["claim_id"])
         print("Review decision:", result["review_decision"])
+        print("Outcome:", result["review_outcome"])
 
 
 if __name__ == "__main__":
