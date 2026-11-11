@@ -4,7 +4,13 @@ POLICIES = {
         "policy_holder": "Alex Morgan",
         "product": "Motor Insurance",
         "status": "active"
-    }
+    },
+    "POL-456": {
+        "policy_number": "POL-456",
+        "policy_holder": "Sam Taylor",
+        "product": "Motor Insurance",
+        "status": "inactive",
+    },
 }
 
 def lookup_policy(policy_number: str) -> dict | None:

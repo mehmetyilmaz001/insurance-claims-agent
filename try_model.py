@@ -164,6 +164,13 @@ def fetch_policy(state: IntakeState):
             "status": "policy_not_found",
             "message": F"No policy record found for {policy_number}."
         }
+
+    if policy["status"] != "active":
+        return {
+            "policy": policy,
+            "status": "policy_inactive_needs_review",
+            "message": "Policy is inactive. A human must review the record.",
+        }
     
     return {
         "policy": policy,
@@ -184,6 +191,7 @@ def pause_for_review(state: IntakeState):
             "policy_number": state["claim"]["policy_number"],
             "claimant_name": state["claim"]["claimant_name"],
             "policy_holder": state["policy"]["policy_holder"],
+            "policy_status": state["policy"]["status"],
             "names_match": state["names_match"],
             "question": "Should this fictional claim proceed to human review?",
         },
@@ -266,7 +274,7 @@ def main():
     initial_state = {
         "description" : (
             "I am Sam Taylor. A stone damaged my windshield "
-            "on November 5, 2026. My policy is POL-123."
+            "on November 5, 2026. My policy is POL-456."
             "The repair estimate is 900."
         ),
         "claim": {},
@@ -274,7 +282,7 @@ def main():
         "missing_fields": [],
         "status": "pending",
         "message": "",
-        "claim_id": "CLM-009",
+        "claim_id": "CLM-010",
         "review_decision": None,
         "names_match": None,
         "review_reason": None,
@@ -282,7 +290,7 @@ def main():
     
     config = {
         "configurable": {
-            "thread_id": "intake-demo-CLM-009",
+            "thread_id": "intake-demo-CLM-010",
         }
     }
 

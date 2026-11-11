@@ -1,0 +1,37 @@
+"""Small fictional examples for checking claim extraction."""
+
+CASES = [
+    {
+        "name": "inactive_policy",
+        "description": (
+            "I am Sam Taylor. A stone damaged my windshield on November 5, 2026. "
+            "My policy is POL-456. The repair estimate is 900."
+        ),
+        "expected": {
+            "claimant_name": "Sam Taylor",
+            "policy_number": "POL-456",
+        },
+    },
+    {
+        "name": "missing_policy_number",
+        "description": (
+            "I am Jordan Lee. A stone damaged my windshield on November 5, 2026. "
+            "The repair estimate is 900."
+        ),
+        "expected": {
+            "claimant_name": "Jordan Lee",
+            "policy_number": None,
+        },
+    },
+    {
+        "name": "active_policy",
+        "description": (
+            "I am Alex Morgan. A stone damaged my windshield on November 5, 2026. "
+            "My policy is POL-123. The repair estimate is 900."
+        ),
+        "expected": {
+            "claimant_name": "Alex Morgan",
+            "policy_number": "POL-123",
+        },
+    },
+]
