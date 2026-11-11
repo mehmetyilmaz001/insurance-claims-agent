@@ -1,5 +1,6 @@
 import json
-from typing import TypedDict
+from operator import add
+from typing import Annotated, TypedDict
 
 from langgraph.graph import START, END, StateGraph
 from openai import OpenAI
@@ -13,7 +14,7 @@ client = OpenAI(
 )
 
 class ToolsState(TypedDict):
-    messages: list[dict]
+    messages: Annotated[list[dict], add]
     tool_calls: list
     tool_rounds: int
     
@@ -28,7 +29,7 @@ def ask_model(state: ToolsState):
     message = response.choices[0].message
     
     return {
-        "messages": state["messages"] + [
+        "messages": [
             message.model_dump(exclude_none=True)
         ],
         "tool_calls": message.tool_calls or []
@@ -50,7 +51,7 @@ def run_tools(state: ToolsState):
         })
     
     return {
-        "messages": state["messages"] + tool_messages,
+        "messages": tool_messages,
         "tool_calls": [],
         "tool_rounds": state["tool_rounds"] + 1
     }
@@ -65,7 +66,7 @@ def write_answer(state: ToolsState):
     message = response.choices[0].message
     
     return {
-        "messages": state["messages"] + [
+        "messages": [
             message.model_dump(exclude_none = True)
         ]
     }
@@ -135,8 +136,8 @@ def main():
         "tool_rounds": 0
     })
     
-    print(result["messages"][-1]["content"])
-    print(f"Tool rounds: {result['tool_rounds']}")
+    print("Message roles:")
+    print([message["role"] for message in result["messages"]])
     
 if __name__ == "__main__":
     main()
