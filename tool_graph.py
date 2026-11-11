@@ -4,6 +4,7 @@ from typing import Annotated, TypedDict
 
 from langgraph.graph import START, END, StateGraph
 from langgraph.checkpoint.memory import InMemorySaver
+from openai.types.chat import ChatCompletionMessageToolCall
 from openai import OpenAI
 
 from try_tools import POLICY_TOOL, execute_tool_call
@@ -16,7 +17,7 @@ client = OpenAI(
 
 class ToolsState(TypedDict):
     messages: Annotated[list[dict], add]
-    tool_calls: list
+    tool_calls: list[dict]
     tool_rounds: int
     
     
@@ -33,13 +34,17 @@ def ask_model(state: ToolsState):
         "messages": [
             message.model_dump(exclude_none=True)
         ],
-        "tool_calls": message.tool_calls or []
+        "tool_calls": [
+            call.model_dump(exclude_none=True)
+            for call in (message.tool_calls or [])
+        ],
     }
     
 def run_tools(state: ToolsState):
     tool_messages = []
     
-    for tool_call in state["tool_calls"]:
+    for tool_call_data in state["tool_calls"]:
+        tool_call = ChatCompletionMessageToolCall.model_validate(tool_call_data)
         result = execute_tool_call(tool_call)
         
         if result is None:
@@ -84,7 +89,7 @@ def route_after_tools(state: ToolsState):
     
     return "continue"
 
-def build_tool_graph():
+def build_tool_graph(checkpointer=None):
     builder = StateGraph(ToolsState)
     
     builder.add_node("ask_model", ask_model)
@@ -112,8 +117,9 @@ def build_tool_graph():
     )
     builder.add_edge("write_answer", END)
     
-    checkpointer = InMemorySaver()
-    return builder.compile(checkpointer=checkpointer)
+    return builder.compile(
+        checkpointer=checkpointer or InMemorySaver()
+    )
 
 def main():
     graph = build_tool_graph()
