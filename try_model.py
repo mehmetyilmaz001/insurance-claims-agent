@@ -9,7 +9,8 @@ from langgraph.types import interrupt
 
 
 from main import build_graph
-from policy_tools import lookup_policy
+from policy_agent_adapter import find_policy_result
+from tool_graph import build_tool_graph
 
 class IntakeState(TypedDict):
     description: str
@@ -119,7 +120,43 @@ def route_after_extraction(state: IntakeState):
 
 def fetch_policy(state: IntakeState):
     policy_number = state["claim"]["policy_number"]
-    policy = lookup_policy(policy_number)
+    try:
+        tool_result = build_tool_graph().invoke(
+            {
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "Look up the requested policy using the lookup_policy tool. "
+                            "Do not infer claim coverage or approval."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Look up policy {policy_number}.",
+                    },
+                ],
+                "tool_calls": [],
+                "tool_rounds": 0,
+            },
+            config={"configurable": {"thread_id": f"lookup-{state['claim_id']}"}},
+        )
+    except APIConnectionError:
+        return {
+            "policy": None,
+            "status": "lookup_failed",
+            "message": "Could not reach the local model for policy lookup.",
+        }
+
+    lookup_result = find_policy_result(tool_result["messages"], policy_number)
+    if lookup_result is None:
+        return {
+            "policy": None,
+            "status": "lookup_failed",
+            "message": f"No verified tool result for policy {policy_number}.",
+        }
+
+    policy = lookup_result["policy"]
     
     if policy is None:
         return {
@@ -237,7 +274,7 @@ def main():
         "missing_fields": [],
         "status": "pending",
         "message": "",
-        "claim_id": "CLM-008",
+        "claim_id": "CLM-009",
         "review_decision": None,
         "names_match": None,
         "review_reason": None,
@@ -245,7 +282,7 @@ def main():
     
     config = {
         "configurable": {
-            "thread_id": "intake-demo-CLM-008",
+            "thread_id": "intake-demo-CLM-009",
         }
     }
 

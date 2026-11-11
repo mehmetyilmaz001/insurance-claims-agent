@@ -48,6 +48,7 @@ def execute_tool_call(tool_call):
     policy = lookup_policy(policy_number)
     
     return {
+        "policy_number": policy_number,
         "found": policy is not None,
         "policy": policy
     }
