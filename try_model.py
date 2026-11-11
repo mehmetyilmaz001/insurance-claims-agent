@@ -21,6 +21,7 @@ class IntakeState(TypedDict):
     claim_id: str
     review_decision: str | None
     names_match: bool | None
+    review_reason: str | None
     
 class ExtractedClaim(BaseModel):
     claimant_name: str | None = None
@@ -135,15 +136,20 @@ def route_after_check(state: IntakeState):
     return "stop"
 
 def pause_for_review(state: IntakeState):
-    decision = interrupt({
+    response = interrupt({
         "claim_id": state["claim_id"],
         "policy_number": state["claim"]["policy_number"],
-        "question": "Should this fictional claim proceed to human review?",
+        "claimant_name": state["claim"]["claimant_name"],
+        "policy_holder": state["policy"]["policy_holder"],
         "names_match": state["names_match"],
+        "question": "Should this fictional claim proceed to human review?",
     })
+
+    decision = response["decision"]
 
     return {
         "review_decision": decision,
+        "review_reason": response["reason"],
         "status": (
             "proceed_to_review" if decision == "yes" else "on_hold"
         ),
@@ -214,7 +220,7 @@ def build_intake_graph(checkpointer):
 def main():    
     initial_state = {
         "description" : (
-            "I am Alex Morgan. A stone damaged my windshield "
+            "I am Sam Taylor. A stone damaged my windshield "
             "on November 5, 2026. My policy is POL-123."
             "The repair estimate is 900."
         ),
@@ -223,14 +229,14 @@ def main():
         "missing_fields": [],
         "status": "pending",
         "message": "",
-        "claim_id": "CLM-006",
+        "claim_id": "CLM-008",
         "review_decision": None,
         "names_match": None,
     }
     
     config = {
         "configurable": {
-            "thread_id": "intake-demo-CLM-006",
+            "thread_id": "intake-demo-CLM-008",
         }
     }
 
