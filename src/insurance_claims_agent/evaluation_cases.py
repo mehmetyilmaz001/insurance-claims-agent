@@ -1,4 +1,4 @@
-"""Small fictional examples for checking claim extraction."""
+"""Fictional descriptions and expected extraction fields for live evaluations."""
 
 CASES = [
     {
@@ -44,6 +44,28 @@ CASES = [
         ),
         "expected": {
             "incident_date": None,
+        },
+    },
+    {
+        "name": "unknown_policy",
+        "description": (
+            "I am Jordan Lee. A stone damaged my windshield on November 5, 2026. "
+            "My policy is POL-999. The repair estimate is 900."
+        ),
+        "expected": {
+            "claimant_name": "Jordan Lee",
+            "policy_number": "POL-999",
+        },
+    },
+    {
+        "name": "name_mismatch",
+        "description": (
+            "I am Casey Rivera. A stone damaged my windshield on November 5, 2026. "
+            "My policy is POL-123. The repair estimate is 900."
+        ),
+        "expected": {
+            "claimant_name": "Casey Rivera",
+            "policy_number": "POL-123",
         },
     },
 ]

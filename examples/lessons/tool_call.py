@@ -1,58 +1,7 @@
 from openai import OpenAI
-from policy_tools import lookup_policy
+from insurance_claims_agent.tools import POLICY_TOOL, execute_tool_call
 import json
 
-POLICY_TOOL = {
-    "type": "function",
-    "function": {
-        "name": "lookup_policy",
-        "description": "Retrieve a policy record using its policy number",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "policy_number": {
-                    "type": "string",
-                    "description": "The policy number, such as POL-123."
-                }
-            },
-            "required": ["policy_number"],
-            "additionalProperties": False
-        }
-    }
-}
-
-def execute_tool_call(tool_call):
-    
-    function_name = tool_call.function.name
-    
-    if function_name != "lookup_policy":
-        print(f"Unsupported tool: {function_name}")
-        return
-    
-    try:
-        arguments = json.loads(tool_call.function.arguments)
-    except json.JSONDecodeError:
-        print("The tool arguments were not valid JSON.")
-        return
-    
-    if not isinstance(arguments, dict):
-        print("The tool arguments must be a JSON object.")
-        return
-    
-    policy_number = arguments.get("policy_number")
-    
-    if not isinstance(policy_number, str) or not policy_number.strip():
-        print("The tool needs a non empty policy number.")
-        return
-    
-    policy = lookup_policy(policy_number)
-    
-    return {
-        "policy_number": policy_number,
-        "found": policy is not None,
-        "policy": policy
-    }
-    
 
 def main():
     client = OpenAI(
@@ -89,7 +38,7 @@ def main():
         messages.append(message.model_dump(exclude_none=True))
         
         for tool_call in message.tool_calls:
-            tool_result = execute_tool_call(tool_call)
+            tool_result = execute_tool_call(tool_call.model_dump(exclude_none=True))
             
             messages.append({
                 "role": "tool",

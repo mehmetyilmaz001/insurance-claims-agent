@@ -1,6 +1,6 @@
 from langgraph.checkpoint.sqlite import SqliteSaver
 
-from tool_graph import build_tool_graph
+from insurance_claims_agent.tool_graph import build_tool_graph
 
 
 def main():
@@ -13,7 +13,7 @@ def main():
     }
 
     with SqliteSaver.from_conn_string("claims.sqlite") as checkpointer:
-        graph = build_tool_graph(checkpointer)
+        graph = build_tool_graph(checkpointer=checkpointer)
         snapshot = graph.get_state(config)
 
         new_messages = [{"role": "user", "content": question}]
