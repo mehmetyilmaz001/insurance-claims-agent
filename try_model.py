@@ -4,6 +4,8 @@ from openai import OpenAI, APIConnectionError
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, ValidationError
 
+from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.types import interrupt
 
 
 from main import build_graph
@@ -16,6 +18,8 @@ class IntakeState(TypedDict):
     missing_fields: list[str]
     status: str
     message: str
+    claim_id: str
+    review_decision: str | None
     
 class ExtractedClaim(BaseModel):
     claimant_name: str | None = None
@@ -129,12 +133,34 @@ def route_after_check(state: IntakeState):
     
     return "stop"
 
-def build_intake_graph():
+def pause_for_review(state: IntakeState):
+    decision = interrupt({
+        "claim_id": state["claim_id"],
+        "policy_number": state["claim"]["policy_number"],
+        "question": "Should this fictional claim proceed to human review?",
+    })
+
+    return {
+        "review_decision": decision,
+        "status": (
+            "proceed_to_review" if decision == "yes" else "on_hold"
+        ),
+    }
+
+
+def route_after_policy(state: IntakeState):
+    if state["policy"] is not None:
+        return "review"
+
+    return "stop"
+
+def build_intake_graph(checkpointer):
     builder = StateGraph(IntakeState)
     
     builder.add_node("extract_claim", extract_claim)
     builder.add_node("check_workflow", build_graph())
     builder.add_node("fetch_policy", fetch_policy)
+    builder.add_node("pause_for_review", pause_for_review)
     
     builder.add_edge(START, "extract_claim")
     
@@ -156,14 +182,21 @@ def build_intake_graph():
         }
     )
     
-    builder.add_edge("fetch_policy", END)
+    builder.add_conditional_edges(
+        "fetch_policy",
+        route_after_policy,
+        {
+            "review": "pause_for_review",
+            "stop": END,
+        },
+    )
+
+    builder.add_edge("pause_for_review", END)
     
-    return builder.compile()
+    return builder.compile(checkpointer=checkpointer)
 
 
-def main():
-    graph = build_intake_graph()
-    
+def main():    
     initial_state = {
         "description" : (
             "I am Alex Morgan. A stone damaged my windshield "
@@ -174,11 +207,28 @@ def main():
         "policy": None,
         "missing_fields": [],
         "status": "pending",
-        "message": ""
+        "message": "",
+        "claim_id": "CLM-004",
+        "review_decision": None,
     }
     
-    for update in graph.stream(initial_state, stream_mode="updates"):
-        print(update)
+    config = {
+        "configurable": {
+            "thread_id": "intake-demo-CLM-004",
+        }
+    }
+
+    with SqliteSaver.from_conn_string("intake.sqlite") as checkpointer:
+        graph = build_intake_graph(checkpointer)
+
+        result = graph.invoke(initial_state, config=config)
+
+        if "__interrupt__" in result:
+            print("Human review request:")
+            print(result["__interrupt__"][0].value)
+        else:
+            print("Status:", result["status"])
+            print(result["message"])
     
     
 
