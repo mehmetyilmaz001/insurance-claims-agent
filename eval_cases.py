@@ -10,6 +10,8 @@ CASES = [
         "expected": {
             "claimant_name": "Sam Taylor",
             "policy_number": "POL-456",
+            "incident_date": "2026-11-05",
+            "estimated_damage": 900.0,
         },
     },
     {
