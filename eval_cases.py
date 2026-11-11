@@ -36,4 +36,14 @@ CASES = [
             "policy_number": "POL-123",
         },
     },
+    {
+        "name": "missing_incident_date",
+        "description": (
+            "I am Alex Morgan. A stone damaged my windshield. "
+            "My policy is POL-123. The repair estimate is 900."
+        ),
+        "expected": {
+            "incident_date": None,
+        },
+    },
 ]
