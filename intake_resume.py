@@ -7,7 +7,7 @@ from try_model import build_intake_graph
 def main():
     config = {
         "configurable": {
-            "thread_id": "intake-demo-CLM-004",
+            "thread_id": "intake-demo-CLM-006",
         }
     }
 
@@ -16,7 +16,7 @@ def main():
         snapshot = graph.get_state(config)
 
         if "pause_for_review" not in snapshot.next:
-            print("No paused review found for CLM-004.")
+            print("No paused review found for CLM-006.")
             return
 
         answer = input("Proceed to human review? yes/no: ").strip().lower()

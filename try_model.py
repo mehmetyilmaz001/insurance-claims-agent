@@ -20,6 +20,7 @@ class IntakeState(TypedDict):
     message: str
     claim_id: str
     review_decision: str | None
+    names_match: bool | None
     
 class ExtractedClaim(BaseModel):
     claimant_name: str | None = None
@@ -138,6 +139,7 @@ def pause_for_review(state: IntakeState):
         "claim_id": state["claim_id"],
         "policy_number": state["claim"]["policy_number"],
         "question": "Should this fictional claim proceed to human review?",
+        "names_match": state["names_match"],
     })
 
     return {
@@ -154,6 +156,17 @@ def route_after_policy(state: IntakeState):
 
     return "stop"
 
+def check_names(state: IntakeState):
+    claimant = state["claim"]["claimant_name"]
+    policy_holder = state["policy"]["policy_holder"]
+
+    names_match = (
+        claimant.strip().casefold()
+        == policy_holder.strip().casefold()
+    )
+
+    return {"names_match": names_match}
+
 def build_intake_graph(checkpointer):
     builder = StateGraph(IntakeState)
     
@@ -161,6 +174,7 @@ def build_intake_graph(checkpointer):
     builder.add_node("check_workflow", build_graph())
     builder.add_node("fetch_policy", fetch_policy)
     builder.add_node("pause_for_review", pause_for_review)
+    builder.add_node("check_names", check_names)
     
     builder.add_edge(START, "extract_claim")
     
@@ -186,11 +200,12 @@ def build_intake_graph(checkpointer):
         "fetch_policy",
         route_after_policy,
         {
-            "review": "pause_for_review",
+            "review": "check_names",
             "stop": END,
         },
     )
 
+    builder.add_edge("check_names", "pause_for_review")
     builder.add_edge("pause_for_review", END)
     
     return builder.compile(checkpointer=checkpointer)
@@ -208,13 +223,14 @@ def main():
         "missing_fields": [],
         "status": "pending",
         "message": "",
-        "claim_id": "CLM-004",
+        "claim_id": "CLM-006",
         "review_decision": None,
+        "names_match": None,
     }
     
     config = {
         "configurable": {
-            "thread_id": "intake-demo-CLM-004",
+            "thread_id": "intake-demo-CLM-006",
         }
     }
 
