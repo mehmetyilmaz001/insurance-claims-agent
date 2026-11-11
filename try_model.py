@@ -1,8 +1,8 @@
-from typing import TypedDict
+from typing import Annotated, Literal, TypedDict
 
 from openai import OpenAI, APIConnectionError
 from langgraph.graph import END, START, StateGraph
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, StringConstraints, ValidationError
 
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import interrupt
@@ -29,6 +29,11 @@ class ExtractedClaim(BaseModel):
     incident_description: str | None = None
     incident_date: str | None = None
     estimated_damage: float | None = None
+
+
+class ReviewResponse(BaseModel):
+    decision: Literal["yes", "no"]
+    reason: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 def extract_claim(state: IntakeState):
     client = OpenAI(
@@ -136,20 +141,23 @@ def route_after_check(state: IntakeState):
     return "stop"
 
 def pause_for_review(state: IntakeState):
-    response = interrupt({
-        "claim_id": state["claim_id"],
-        "policy_number": state["claim"]["policy_number"],
-        "claimant_name": state["claim"]["claimant_name"],
-        "policy_holder": state["policy"]["policy_holder"],
-        "names_match": state["names_match"],
-        "question": "Should this fictional claim proceed to human review?",
-    })
+    response = interrupt(
+        {
+            "claim_id": state["claim_id"],
+            "policy_number": state["claim"]["policy_number"],
+            "claimant_name": state["claim"]["claimant_name"],
+            "policy_holder": state["policy"]["policy_holder"],
+            "names_match": state["names_match"],
+            "question": "Should this fictional claim proceed to human review?",
+        },
+        response_schema=ReviewResponse,
+    )
 
-    decision = response["decision"]
+    decision = response.decision
 
     return {
         "review_decision": decision,
-        "review_reason": response["reason"],
+        "review_reason": response.reason,
         "status": (
             "proceed_to_review" if decision == "yes" else "on_hold"
         ),
@@ -232,6 +240,7 @@ def main():
         "claim_id": "CLM-008",
         "review_decision": None,
         "names_match": None,
+        "review_reason": None,
     }
     
     config = {
